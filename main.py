@@ -85,6 +85,7 @@ def save_model(model, save_dir, cnt):
 
 
 def train(dataloader, model):
+    model.train()
     write_log("#######################################################")
     for flag in args.__dict__:
         write_log(flag + " = " + str(args.__dict__[flag]))
@@ -108,6 +109,7 @@ def train(dataloader, model):
 
 
 def evaluate(dataloader, model, ksave_dir, mode='valid'):
+    model.eval()
     if mode == 'valid':
         texts_path = "processed_data/valid/valid.box.val"
         gold_path = gold_path_valid
