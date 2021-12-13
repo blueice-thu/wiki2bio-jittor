@@ -7,11 +7,11 @@ class AttentionWrapper(jt.Module):
         self.input_size = input_size
         self.hs = jt.array(np.transpose(hs, [1, 0, 2]))
         
-        self.Wh = jt.ones([input_size, hidden_size])
+        self.Wh = jt.rand([input_size, hidden_size])
         self.bh = jt.zeros([hidden_size])
-        self.Ws = jt.ones([input_size, hidden_size])
+        self.Ws = jt.rand([input_size, hidden_size])
         self.bs = jt.zeros([hidden_size])
-        self.Wo = jt.ones([2 * input_size, hidden_size])
+        self.Wo = jt.rand([2 * input_size, hidden_size])
         self.bo = jt.zeros([hidden_size])
         self.params = {'Wh': self.Wh, 'Ws': self.Ws, 'Wo': self.Wo,
             'bh': self.bh, 'bs': self.bs, 'bo': self.bo}
