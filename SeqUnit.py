@@ -6,11 +6,6 @@ from LstmUnit import LstmUnit
 from fgateLstmUnit import fgateLstmUnit
 from OutputUnit import OutputUnit
 
-def embedding_lookup(params, ids):
-    # TODO: implement tf.embedding_lookup
-    # REF: https://www.tensorflow.org/api_docs/python/tf/nn/embedding_lookup
-    return jt.array()
-
 class SeqUnit(jt.Module):
     def __init__(self, batch_size, hidden_size, emb_size, field_size, pos_size, source_vocab, field_vocab,
             position_vocab, target_vocab, field_concat, position_concat, fgate_enc, dual_att,
@@ -90,14 +85,18 @@ class SeqUnit(jt.Module):
 
         # ======================================== encoder ======================================== #
         if self.fgate_enc:
+            print('field gated encoder used')
             en_outputs, en_state = self.fgate_encoder(self.encoder_embed, self.field_pos_embed, self.encoder_len)
         else:
+            print('normal encoder used')
             en_outputs, en_state = self.encoder(self.encoder_embed, self.encoder_len)
         
         # ======================================== decoder ======================================== #
         if self.dual_att:
+            print('dual attention mechanism used')
             self.att_layer = dualAttentionWrapper(self.hidden_size, self.hidden_size, self.field_attention_size, en_outputs, self.field_pos_embed)
         else:
+            print('normal attention used')
             self.att_layer = AttentionWrapper(self.hidden_size, self.hidden_size, en_outputs)
         self.units['attention'] = self.att_layer
 
@@ -114,7 +113,44 @@ class SeqUnit(jt.Module):
         # grads, _ = tf.clip_by_global_norm(tf.gradients(self.mean_loss, tvars), self.grad_clip)
         # optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
         # self.train_op = optimizer.apply_gradients(zip(grads, tvars))
-        
+    
+    def execute(self, x):
+        """ 
+        {self.encoder_input: x['enc_in'], self.encoder_len: x['enc_len'], 
+        self.encoder_field: x['enc_fd'], self.encoder_pos: x['enc_pos'], 
+        self.encoder_rpos: x['enc_rpos'], self.decoder_input: x['dec_in'],
+        self.decoder_len: x['dec_len'], self.decoder_output: x['dec_out']}
+        """
+        encoder_embed = self.embedding[x['enc_in']]
+        decoder_embed = self.embedding[x['dec_in']]
+        if self.field_concat or self.fgate_enc or\
+            self.encoder_add_pos or self.decoder_add_pos:
+            field_embed = self.fembedding[x['enc_fd']]
+            if self.field_concat:
+                encoder_embed = jt.concat([encoder_embed, field_embed], dim=2)
+        if self.position_concat or self.encoder_add_pos or self.decoder_add_pos:
+            pos_embed = self.pembedding[x['enc_pos']]
+            rpos_embed = self.rembedding[x['enc_rpos']]
+            if self.position_concat:
+                encoder_embed = jt.concat([encoder_embed, pos_embed, rpos_embed], dim=2)
+                field_pos_embed = jt.concat([field_embed, pos_embed, rpos_embed], dim=2)
+            elif self.encoder_add_pos or self.decoder_add_pos:
+                field_pos_embed = jt.concat([field_embed, pos_embed, rpos_embed], dim=2)
+        # ===== encode ===== #
+        if self.fgate_enc:
+            en_outputs, en_state = self.fgate_encoder(encoder_embed, field_pos_embed, x['enc_len'])
+        else:
+            en_outputs, en_state = self.encoder(self.encoder_embed, x['enc_len'])
+        # ===== decode ===== #
+        de_outputs, de_state = self.decoder_t(en_state, decoder_embed, x['dec_len'])
+        self.g_tokens, self.atts = self.decoder_g(en_state)
+        losses = jt.nn.cross_entropy_loss(output=de_outputs, target=x['dec_out'])
+        mask = jt.sign(jt.float32(x['dec_out']))
+        losses = mask * losses
+        self.mean_loss = jt.mean(losses)
+        return self.mean_loss
+            
+            
     def generate(self, x):
         pass
 
@@ -125,3 +161,9 @@ class SeqUnit(jt.Module):
         params = jt.load(path)
         for param in params:
             self.params[param].assign(params[param])
+
+
+def embedding_lookup(params, ids):
+    # TODO: implement tf.embedding_lookup
+    # REF: https://www.tensorflow.org/api_docs/python/tf/nn/embedding_lookup
+    return jt.array()
