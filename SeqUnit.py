@@ -149,7 +149,68 @@ class SeqUnit(jt.Module):
         losses = mask * losses
         self.mean_loss = jt.mean(losses)
         return self.mean_loss
-            
+        
+    def encoder(self, inputs, inputs_len):
+        batch_size = inputs.shape[0]
+        max_time = inputs.shape[1]
+        hidden_size = self.hidden_size
+        time = jt.array(0)
+        h0 = (
+            jt.zeros([batch_size, hidden_size], dtype=jt.float32),
+            jt.zeros([batch_size, hidden_size], dtype=jt.float32)
+        )
+        f0 = jt.zeros([batch_size], dtype=jt.bool)
+        # inputs_ta = tf.TensorArray(dtype=tf.float32, size=max_time)
+        # emit_ta = tf.TensorArray(dtype=tf.float32, dynamic_size=True, size=0)
+        inputs_ta = jt.transpose(inputs, [1,0,2])
+        emit_ta = []
+        
+        def loop_fn(t, x_t, s_t, emit_ta, finished):
+            o_t, s_nt = self.enc_lstm(x_t, s_t, finished)
+            emit_ta.append(o_t)
+            finished = (t+1) >= inputs_len
+            x_nt = jt.zeros([batch_size, self.uni_size], dtype=jt.float32) \
+                if jt.all(finished) else inputs_ta[t+1]
+            return t+1, x_nt, s_nt, finished
+
+        while not jt.all(f0):
+            time, inputs_ta[0], h0, f0 = loop_fn(time, inputs_ta[0], h0, emit_ta, f0)
+        outputs = jt.transpose(jt.concat(emit_ta, dim=0), [1,0,2])
+        return outputs, h0
+    
+    def fgate_encoder(self, inputs, fields, inputs_len):
+        batch_size = inputs.shape[0]
+        max_time = inputs.shape[1]
+        hidden_size = self.hidden_size
+
+        time = jt.array(0)
+        h0 = (
+            jt.zeros([batch_size, hidden_size], dtype=jt.float32),
+            jt.zeros([batch_size, hidden_size], dtype=jt.float32)
+        )
+        f0 = jt.zeros([batch_size], dtype=jt.bool)
+        inputs_ta = jt.transpose(inputs, [1,0,2])
+        fields_ta = jt.transpose(fields, [1,0,2])
+        emit_ta = []
+
+        def loop_fn(t, x_t, d_t, s_t, emit_ta, finished):
+            o_t, s_nt = self.enc_lstm(x_t, d_t, s_t, finished)
+            emit_ta.append(o_t)
+            finished = t+1 >= inputs_len
+            x_nt = jt.zeros([batch_size, self.uni_size], dtype=jt.float32) \
+                if jt.all(finished) else inputs_ta[t+1]
+            d_nt = jt.zeros([batch_size, self.field_attention_size], dtype=jt.float32) \
+                if jt.all(finished) else fields_ta[t+1]
+            return t+1, x_nt, d_nt, s_nt, finished
+        
+        while not jt.all(f0):
+            time, inputs_ta[0], fields_ta[0], h0, f0 = loop_fn(time, inputs_ta[0], fields_ta[0], h0, emit_ta, f0)
+        
+        outputs = jt.transpose(jt.concat(emit_ta, dim=0), [1,0,2])
+        return outputs, h0
+    
+    def decoder_t(self, initial_state, inputs, inputs_len):
+        pass
             
     def generate(self, x):
         pass
