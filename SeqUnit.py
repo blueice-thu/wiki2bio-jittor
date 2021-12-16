@@ -121,6 +121,7 @@ class SeqUnit(jt.Module):
         self.encoder_rpos: x['enc_rpos'], self.decoder_input: x['dec_in'],
         self.decoder_len: x['dec_len'], self.decoder_output: x['dec_out']}
         """
+        self.encoder_input = x['enc_in']
         encoder_embed = self.embedding[x['enc_in']]
         decoder_embed = self.embedding[x['dec_in']]
         if self.field_concat or self.fgate_enc or\
@@ -167,7 +168,7 @@ class SeqUnit(jt.Module):
         
         def loop_fn(t, x_t, s_t, emit_ta, finished):
             o_t, s_nt = self.enc_lstm(x_t, s_t, finished)
-            emit_ta.append(o_t)
+            emit_ta.append(o_t.unsqueeze(0))
             finished = (t+1) >= inputs_len
             x_nt = jt.zeros([batch_size, self.uni_size], dtype=jt.float32) \
                 if jt.all(finished) else inputs_ta[t+1]
@@ -195,7 +196,7 @@ class SeqUnit(jt.Module):
 
         def loop_fn(t, x_t, d_t, s_t, emit_ta, finished):
             o_t, s_nt = self.enc_lstm(x_t, d_t, s_t, finished)
-            emit_ta.append(o_t)
+            emit_ta.append(o_t.unsqueeze(0))
             finished = t+1 >= inputs_len
             x_nt = jt.zeros([batch_size, self.uni_size], dtype=jt.float32) \
                 if jt.all(finished) else inputs_ta[t+1]
@@ -210,7 +211,83 @@ class SeqUnit(jt.Module):
         return outputs, h0
     
     def decoder_t(self, initial_state, inputs, inputs_len):
-        pass
+        batch_size = inputs.shape[0]
+        max_time = inputs.shape[1]
+        time = jt.array(0)
+        h0 = initial_state
+        f0 = jt.zeros([batch_size], dtype=jt.bool)
+        x0 = self.embedding[jt.array([self.start_token] * batch_size)]
+        inputs_ta = jt.transpose(inputs, [1,0,2])
+        emit_ta = []
+        
+        def loop_fn(t, x_t, s_t, emit_ta, finished):
+            o_t, s_nt = self.dec_lstm(x_t, s_t, finished)
+            o_t, _ = self.att_layer(o_t)
+            o_t = self.dec_out(o_t, finished)
+            emit_ta.append(o_t.unsqueeze(0))
+            finished = t >= inputs_len
+            x_nt = jt.zeros([batch_size, self.emb_size], dtype=jt.float32) \
+                if jt.all(finished) else inputs_ta[t]
+            return t+1, x_nt, s_nt, finished
+
+        while not jt.all(f0):
+            time, x0, h0, f0 = loop_fn(time, x0, h0, emit_ta, f0)
+        
+        outputs = jt.transpose(jt.concat(emit_ta, dim=0), [1,0,2])
+        return outputs, h0 
+    
+    def decoder_g(self, initial_state):
+        batch_size = self.encoder_input.shape[0]
+        encoder_len = self.encoder_input.shape[1]
+        time = jt.array(0)
+        h0 = initial_state
+        f0 = jt.zeros([batch_size], dtype=jt.bool)
+        x0 = self.embedding[jt.array([self.start_token] * batch_size)]
+        emit_ta = []
+        att_ta = []
+        
+        def loop_fn(t, x_t, s_t, emit_ta, att_ta, finished):
+            o_t, s_nt = self.dec_lstm(x_t, s_t, finished)
+            o_t, w_t = self.att_layer(o_t)
+            o_t = self.dec_out(o_t, finished)
+            emit_ta.append(o_t.unsqueeze(0))
+            att_ta.append(w_t.unsqueeze(0))
+            next_token = jt.argmax(o_t, dim=1)
+            x_nt = self.embedding[next_token]
+            finished = finished or (next_token == self.stop_token) \
+                or (t >= self.max_length)
+            return t+1, x_nt, s_nt, finished
+        
+        while not jt.all(f0):
+            time, x0, h0, f0 = loop_fn(time, x0, h0, emit_ta, att_ta, f0)
+        
+        outputs = jt.transpose(jt.concat(emit_ta, dim=0), [1,0,2])
+        pred_tokens = jt.argmax(outputs, dim=2)
+        atts = jt.concat(att_ta, dim=0)
+        return pred_tokens, atts
+    
+    def decoder_beam(self, initial_state, beam_size):
+        
+        def beam_init():
+            time_1 = jt.array(1)
+            beam_seqs_0 = jt.array([[self.start_token]] * beam_size)
+            beam_probs_0 = jt.array([0.0] * beam_size)
+
+            cand_seqs_0 = jt.array([[self.start_token]])
+            cand_probs_0 = jt.array([-3e38])
+            
+            inputs = jt.array([self.start_token])
+            x_t = self.embedding[inputs]
+            print(x_t.shape)
+            o_t, s_nt = self.dec_lstm(x_t, initial_state)
+            o_t, w_t = self.att_layer(o_t)
+            o_t = self.dec_out(o_t)
+            print(s_nt[0].shape)
+            logprobs2d = jt.nn.log_softmax(o_t)
+            total_probs = logprobs2d + jt.reshape(beam_probs_0, [-1, 1])
+            total_probs_noEOS = jt.concat([])
+            # TODO: beam
+            flat_total_probs = jt.reshape(total_probs_noEOS, [-1])
             
     def generate(self, x):
         pass
