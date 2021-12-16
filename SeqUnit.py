@@ -168,7 +168,7 @@ class SeqUnit(jt.Module):
         
         def loop_fn(t, x_t, s_t, emit_ta, finished):
             o_t, s_nt = self.enc_lstm(x_t, s_t, finished)
-            emit_ta.append(o_t.unsqueeze(0))
+            emit_ta.append(o_t)
             finished = (t+1) >= inputs_len
             x_nt = jt.zeros([batch_size, self.uni_size], dtype=jt.float32) \
                 if jt.all(finished) else inputs_ta[t+1]
@@ -176,7 +176,7 @@ class SeqUnit(jt.Module):
 
         while not jt.all(f0):
             time, inputs_ta[0], h0, f0 = loop_fn(time, inputs_ta[0], h0, emit_ta, f0)
-        outputs = jt.transpose(jt.concat(emit_ta, dim=0), [1,0,2])
+        outputs = jt.transpose(jt.stack(emit_ta, dim=0), [1,0,2])
         return outputs, h0
     
     def fgate_encoder(self, inputs, fields, inputs_len):
@@ -196,7 +196,7 @@ class SeqUnit(jt.Module):
 
         def loop_fn(t, x_t, d_t, s_t, emit_ta, finished):
             o_t, s_nt = self.enc_lstm(x_t, d_t, s_t, finished)
-            emit_ta.append(o_t.unsqueeze(0))
+            emit_ta.append(o_t)
             finished = t+1 >= inputs_len
             x_nt = jt.zeros([batch_size, self.uni_size], dtype=jt.float32) \
                 if jt.all(finished) else inputs_ta[t+1]
@@ -207,7 +207,7 @@ class SeqUnit(jt.Module):
         while not jt.all(f0):
             time, inputs_ta[0], fields_ta[0], h0, f0 = loop_fn(time, inputs_ta[0], fields_ta[0], h0, emit_ta, f0)
         
-        outputs = jt.transpose(jt.concat(emit_ta, dim=0), [1,0,2])
+        outputs = jt.transpose(jt.stack(emit_ta, dim=0), [1,0,2])
         return outputs, h0
     
     def decoder_t(self, initial_state, inputs, inputs_len):
@@ -224,7 +224,7 @@ class SeqUnit(jt.Module):
             o_t, s_nt = self.dec_lstm(x_t, s_t, finished)
             o_t, _ = self.att_layer(o_t)
             o_t = self.dec_out(o_t, finished)
-            emit_ta.append(o_t.unsqueeze(0))
+            emit_ta.append(o_t)
             finished = t >= inputs_len
             x_nt = jt.zeros([batch_size, self.emb_size], dtype=jt.float32) \
                 if jt.all(finished) else inputs_ta[t]
@@ -233,7 +233,7 @@ class SeqUnit(jt.Module):
         while not jt.all(f0):
             time, x0, h0, f0 = loop_fn(time, x0, h0, emit_ta, f0)
         
-        outputs = jt.transpose(jt.concat(emit_ta, dim=0), [1,0,2])
+        outputs = jt.transpose(jt.stack(emit_ta, dim=0), [1,0,2])
         return outputs, h0 
     
     def decoder_g(self, initial_state):
@@ -250,8 +250,8 @@ class SeqUnit(jt.Module):
             o_t, s_nt = self.dec_lstm(x_t, s_t, finished)
             o_t, w_t = self.att_layer(o_t)
             o_t = self.dec_out(o_t, finished)
-            emit_ta.append(o_t.unsqueeze(0))
-            att_ta.append(w_t.unsqueeze(0))
+            emit_ta.append(o_t)
+            att_ta.append(w_t)
             next_token = jt.argmax(o_t, dim=1)
             x_nt = self.embedding[next_token]
             finished = finished or (next_token == self.stop_token) \
@@ -261,9 +261,9 @@ class SeqUnit(jt.Module):
         while not jt.all(f0):
             time, x0, h0, f0 = loop_fn(time, x0, h0, emit_ta, att_ta, f0)
         
-        outputs = jt.transpose(jt.concat(emit_ta, dim=0), [1,0,2])
+        outputs = jt.transpose(jt.stack(emit_ta, dim=0), [1,0,2])
         pred_tokens = jt.argmax(outputs, dim=2)
-        atts = jt.concat(att_ta, dim=0)
+        atts = jt.stack(att_ta, dim=0)
         return pred_tokens, atts
     
     def decoder_beam(self, initial_state, beam_size):
@@ -285,9 +285,117 @@ class SeqUnit(jt.Module):
             print(s_nt[0].shape)
             logprobs2d = jt.nn.log_softmax(o_t)
             total_probs = logprobs2d + jt.reshape(beam_probs_0, [-1, 1])
-            total_probs_noEOS = jt.concat([])
-            # TODO: beam
+            total_probs_noEOS = jt.concat([
+                total_probs[0:1, 0:self.stop_token],
+                jt.array([[-3e38]]),
+                total_probs[0:1, self.stop_token+1:self.target_vocab]
+            ], dim=1)
             flat_total_probs = jt.reshape(total_probs_noEOS, [-1])
+            print(flat_total_probs.shape)
+            
+            beam_k = min(len(flat_total_probs), beam_size)
+            top_indices, next_beam_probs = jt.argsort(flat_total_probs)
+            top_indices = top_indices[:beam_k]
+            next_beam_probs = next_beam_probs[:beam_k]
+            
+            next_bases = top_indices // self.target_vocab
+            next_mods = jt.mod(top_indices, self.target_vocab)
+            
+            next_beam_seqs = jt.concat([
+                beam_seqs_0[next_bases],
+                jt.reshape(next_mods, [-1, 1])
+            ], dim=1)
+            
+            cand_seqs_pad = jt.nn.pad(cand_seqs_0, [0,1])
+            beam_seqs_EOS = jt.nn.pad(beam_seqs_0, [0,1])
+            new_cand_seqs = jt.concat([cand_seqs_pad, beam_seqs_EOS], 0)
+            print(new_cand_seqs.shape)
+            
+            EOS_probs = total_probs[0:beam_size, self.stop_token:self.stop_token+1]
+            new_cand_probs = jt.concat([
+                cand_probs_0,
+                jt.reshape(EOS_probs, [-1])
+            ], 0)
+            cand_k = min(len(new_cand_probs), self.beam_size)
+            next_cand_indices, next_cand_probs = jt.argsort(new_cand_probs)
+            next_cand_indices = next_cand_indices[:cand_k]
+            next_cand_probs = next_cand_probs[:cand_k]
+            next_cand_seqs = new_cand_seqs[next_cand_indices]
+            
+            part_state_0 = jt.reshape(jt.stack([s_nt[0]] * beam_size), [beam_size, self.hidden_size])
+            part_state_1 = jt.reshape(jt.stack([s_nt[1]] * beam_size), [beam_size, self.hidden_size])
+            next_states = (part_state_0, part_state_1)
+            print(part_state_0.shape)
+            
+            return next_beam_seqs, next_beam_probs, next_cand_seqs, \
+                next_cand_probs, next_states, time_1
+        
+        beam_seqs_1, beam_probs_1, cand_seqs_1, \
+            cand_probs_1, states_1, time_1 = beam_init()
+        
+        def beam_step(beam_seqs, beam_probs, cand_seqs, cand_probs, states, time):
+            inputs = jt.reshape(beam_seqs[0:beam_size, time:time+1], [beam_size])
+            x_t = self.embedding[inputs]
+            o_t, s_nt = self.dec_lstm(x_t, states)
+            o_t, w_t = self.att_layer(o_t)
+            o_t = self.dec_out(o_t)
+            
+            logprobs2d = jt.nn.log_softmax(o_t)
+            print(logprobs2d.shape)
+            total_probs = logprobs2d + jt.reshape(beam_probs, [-1, 1])
+            print(total_probs.shape)
+            total_probs_noEOS = jt.concat([
+                total_probs[0:beam_size, 0:self.stop_token],
+                jt.reshape(jt.array([-3e38] * beam_size), [beam_size, 1]),
+                total_probs[0:beam_size, self.stop_token+1:self.target_vocab]
+            ], dim=1)
+            flat_total_probs = jt.reshape(total_probs_noEOS, [-1])
+            print(flat_total_probs.shape)
+            
+            beam_k = min(len(flat_total_probs), beam_size)
+            top_indices, next_beam_probs = jt.argsort(flat_total_probs)
+            top_indices = top_indices[:beam_k]
+            next_beam_probs = next_beam_probs[:beam_k]
+            
+            next_bases = top_indices // self.target_vocab
+            next_mods = jt.mod(top_indices, self.target_vocab)
+            
+            next_beam_seqs = jt.concat([
+                beam_seqs[next_bases],
+                jt.reshape(next_mods, [-1, 1])
+            ], dim=1)
+            
+            next_states = (s_nt[0][next_bases], s_nt[1][next_bases])
+            
+            cand_seqs_pad = jt.nn.pad(cand_seqs, [0,1])
+            beam_seqs_EOS = jt.nn.pad(beam_seqs, [0,1])
+            new_cand_seqs = jt.concat([cand_seqs_pad, beam_seqs_EOS], 0)
+            print(new_cand_seqs.shape)
+            
+            EOS_probs = total_probs[0:beam_size, self.stop_token:self.stop_token+1]
+            new_cand_probs = jt.concat([
+                cand_probs,
+                jt.reshape(EOS_probs, [-1])
+            ], 0)
+            cand_k = min(len(new_cand_probs), self.beam_size)
+            next_cand_indices, next_cand_probs = jt.argsort(new_cand_probs)
+            next_cand_indices = next_cand_indices[:cand_k]
+            next_cand_probs = next_cand_probs[:cand_k]
+            next_cand_seqs = new_cand_seqs[next_cand_indices]
+            
+            return next_beam_seqs, next_beam_probs, next_cand_seqs, \
+                next_cand_probs, next_states, time+1
+        
+        def beam_cond(beam_probs, beam_seqs, cand_probs, cand_seqs, state, time):
+            length = (beam_probs.max() >= cand_probs.min())
+            return length and (time < 60)
+        
+        loop_vars = [beam_seqs_1, beam_probs_1, cand_seqs_1, cand_probs_1, states_1, time_1]
+        
+        while beam_cond(*loop_vars):
+            loop_vars = beam_step(*loop_vars)
+        
+        return beam_seqs_1, beam_probs_1, cand_seqs_1, cand_probs_1
             
     def generate(self, x):
         pass
