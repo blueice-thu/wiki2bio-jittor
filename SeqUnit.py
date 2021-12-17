@@ -57,24 +57,6 @@ class SeqUnit(jt.Module):
         self.units = {'encoder_lstm': self.enc_lstm,'decoder_lstm': self.dec_lstm, 'decoder_output': self.dec_out}
 
         self.embedding = jt.rand([self.source_vocab, self.emb_size])
-        self.encoder_embed = embedding_lookup(self.embedding, self.encoder_input)
-        self.decoder_embed = embedding_lookup(self.embedding, self.decoder_input)
-        if self.field_concat or self.fgate_enc or self.encoder_add_pos or self.decoder_add_pos:
-            self.fembedding = jt.rand([self.field_vocab, self.field_size])
-            self.field_embed = embedding_lookup(self.fembedding, self.encoder_field)
-            self.field_pos_embed = self.field_embed
-            if self.field_concat:
-                self.encoder_embed = jt.contrib.concat([self.encoder_embed, self.field_embed], 2)
-        if self.position_concat or self.encoder_add_pos or self.decoder_add_pos:
-            self.pembedding = jt.rand([self.position_vocab, self.pos_size])
-            self.rembedding = jt.rand([self.position_vocab, self.pos_size])
-            self.pos_embed = embedding_lookup(self.pembedding, self.encoder_pos)
-            self.rpos_embed = embedding_lookup(self.rembedding, self.encoder_rpos)
-            if position_concat:
-                self.encoder_embed = jt.contrib.concat([self.encoder_embed, self.pos_embed, self.rpos_embed], 2)
-                self.field_pos_embed = jt.contrib.concat([self.field_embed, self.pos_embed, self.rpos_embed], 2)
-            elif self.encoder_add_pos or self.decoder_add_pos:
-                self.field_pos_embed = jt.contrib.concat([self.field_embed, self.pos_embed, self.rpos_embed], 2)
         
         if self.field_concat or self.fgate_enc:
             self.params['fembedding'] = self.fembedding
@@ -100,14 +82,6 @@ class SeqUnit(jt.Module):
             self.att_layer = AttentionWrapper(self.hidden_size, self.hidden_size, en_outputs)
         self.units['attention'] = self.att_layer
 
-        de_outputs, de_state = self.decoder_t(en_state, self.decoder_embed, self.decoder_len)
-        self.g_tokens, self.atts = self.decoder_g(en_state)
-
-        losses = jt.nn.cross_entropy_loss(output=de_outputs, target=self.decoder_output)
-        mask = jt.sign(jt.float32(self.decoder_output))
-        losses = mask * losses
-        self.mean_loss = jt.mean(losses)
-
         # TODO
         # tvars = tf.trainable_variables()
         # grads, _ = tf.clip_by_global_norm(tf.gradients(self.mean_loss, tvars), self.grad_clip)
@@ -127,6 +101,7 @@ class SeqUnit(jt.Module):
         if self.field_concat or self.fgate_enc or\
             self.encoder_add_pos or self.decoder_add_pos:
             field_embed = self.fembedding[x['enc_fd']]
+            field_pos_embed = field_embed
             if self.field_concat:
                 encoder_embed = jt.concat([encoder_embed, field_embed], dim=2)
         if self.position_concat or self.encoder_add_pos or self.decoder_add_pos:
@@ -395,7 +370,7 @@ class SeqUnit(jt.Module):
         while beam_cond(*loop_vars):
             loop_vars = beam_step(*loop_vars)
         
-        return beam_seqs_1, beam_probs_1, cand_seqs_1, cand_probs_1
+        return loop_vars[0], loop_vars[1], loop_vars[2], loop_vars[3]
             
     def generate(self, x):
         pass
