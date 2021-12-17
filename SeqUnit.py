@@ -97,7 +97,8 @@ class SeqUnit(jt.Module):
         """
         self.encoder_input = x['enc_in']
         encoder_embed = self.embedding[x['enc_in']]
-        decoder_embed = self.embedding[x['dec_in']]
+        if x['dec_in'] != None:
+            decoder_embed = self.embedding[x['dec_in']]
         if self.field_concat or self.fgate_enc or\
             self.encoder_add_pos or self.decoder_add_pos:
             field_embed = self.fembedding[x['enc_fd']]
@@ -118,13 +119,16 @@ class SeqUnit(jt.Module):
         else:
             en_outputs, en_state = self.encoder(self.encoder_embed, x['enc_len'])
         # ===== decode ===== #
-        de_outputs, de_state = self.decoder_t(en_state, decoder_embed, x['dec_len'])
+        if x['dec_len'] != None:
+            de_outputs, de_state = self.decoder_t(en_state, decoder_embed, x['dec_len'])
         self.g_tokens, self.atts = self.decoder_g(en_state)
-        losses = jt.nn.cross_entropy_loss(output=de_outputs, target=x['dec_out'])
-        mask = jt.sign(jt.float32(x['dec_out']))
-        losses = mask * losses
-        self.mean_loss = jt.mean(losses)
-        return self.mean_loss
+        self.mean_loss = None
+        if x['dec_out'] != None:
+            losses = jt.nn.cross_entropy_loss(output=de_outputs, target=x['dec_out'])
+            mask = jt.sign(jt.float32(x['dec_out']))
+            losses = mask * losses
+            self.mean_loss = jt.mean(losses)
+        return self.mean_loss, self.g_tokens, self.atts
         
     def encoder(self, inputs, inputs_len):
         batch_size = inputs.shape[0]
