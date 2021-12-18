@@ -31,7 +31,7 @@ class dualAttentionWrapper(jt.Module):
         phi_fds2d = jt.tanh(jt.nn.matmul(fds2d, self.Wf) + self.bf)
         self.phi_fds = jt.reshape(phi_fds2d, self.hs.shape)
     
-    def execute(self, x, coverage = None, finished = None):
+    def execute(self, x, finished = None):
         gamma_h = jt.tanh(jt.nn.matmul(x, self.Ws) + self.bs)  # batch * hidden_size
         alpha_h = jt.tanh(jt.nn.matmul(x, self.Wr) + self.br)
         fd_weights = jt.sum(self.phi_fds * alpha_h, dim=2, keepdims=True)

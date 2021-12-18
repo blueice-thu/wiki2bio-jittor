@@ -57,6 +57,24 @@ class SeqUnit(jt.Module):
         self.units = {'encoder_lstm': self.enc_lstm,'decoder_lstm': self.dec_lstm, 'decoder_output': self.dec_out}
 
         self.embedding = jt.rand([self.source_vocab, self.emb_size])
+        # self.encoder_embed = tf.nn.embedding_lookup(self.embedding, self.encoder_input)
+        # self.decoder_embed = tf.nn.embedding_lookup(self.embedding, self.decoder_input)
+        if self.field_concat or self.fgate_enc or self.encoder_add_pos or self.decoder_add_pos:
+            self.fembedding = jt.rand([self.field_vocab, self.field_size])
+            # self.field_embed = tf.nn.embedding_lookup(self.fembedding, self.encoder_field)
+            # self.field_pos_embed = self.field_embed
+            # if self.field_concat:
+            #     self.encoder_embed = jt.contrib.concat([self.encoder_embed, self.field_embed], 2)
+        if self.position_concat or self.encoder_add_pos or self.decoder_add_pos:
+            self.pembedding = jt.rand([self.position_vocab, self.pos_size])
+            self.rembedding = jt.rand([self.position_vocab, self.pos_size])
+            # self.pos_embed = tf.nn.embedding_lookup(self.pembedding, self.encoder_pos)
+            # self.rpos_embed = tf.nn.embedding_lookup(self.rembedding, self.encoder_rpos)
+            # if position_concat:
+            #     self.encoder_embed = jt.contrib.concat([self.encoder_embed, self.pos_embed, self.rpos_embed], 2)
+            #     self.field_pos_embed = jt.contrib.concat([self.field_embed, self.pos_embed, self.rpos_embed], 2)
+            # elif self.encoder_add_pos or self.decoder_add_pos:
+            #     self.field_pos_embed = jt.contrib.concat([self.field_embed, self.pos_embed, self.rpos_embed], 2)
         
         if self.field_concat or self.fgate_enc:
             self.params['fembedding'] = self.fembedding
@@ -65,22 +83,24 @@ class SeqUnit(jt.Module):
             self.params['rembedding'] = self.rembedding
         self.params['embedding'] = self.embedding
 
+        self.optimizer = jt.nn.Adam(self.parameters(), learning_rate)
+
         # ======================================== encoder ======================================== #
-        if self.fgate_enc:
-            print('field gated encoder used')
-            en_outputs, en_state = self.fgate_encoder(self.encoder_embed, self.field_pos_embed, self.encoder_len)
-        else:
-            print('normal encoder used')
-            en_outputs, en_state = self.encoder(self.encoder_embed, self.encoder_len)
+        # if self.fgate_enc:
+        #     print('field gated encoder used')
+        #     en_outputs, en_state = self.fgate_encoder(self.encoder_embed, self.field_pos_embed, self.encoder_len)
+        # else:
+        #     print('normal encoder used')
+        #     en_outputs, en_state = self.encoder(self.encoder_embed, self.encoder_len)
         
         # ======================================== decoder ======================================== #
-        if self.dual_att:
-            print('dual attention mechanism used')
-            self.att_layer = dualAttentionWrapper(self.hidden_size, self.hidden_size, self.field_attention_size, en_outputs, self.field_pos_embed)
-        else:
-            print('normal attention used')
-            self.att_layer = AttentionWrapper(self.hidden_size, self.hidden_size, en_outputs)
-        self.units['attention'] = self.att_layer
+        # if self.dual_att:
+        #     print('dual attention mechanism used')
+        #     self.att_layer = dualAttentionWrapper(self.hidden_size, self.hidden_size, self.field_attention_size, en_outputs, self.field_pos_embed)
+        # else:
+        #     print('normal attention used')
+        #     self.att_layer = AttentionWrapper(self.hidden_size, self.hidden_size, en_outputs)
+        # self.units['attention'] = self.att_layer
 
         # TODO
         # tvars = tf.trainable_variables()
@@ -118,6 +138,15 @@ class SeqUnit(jt.Module):
             en_outputs, en_state = self.fgate_encoder(encoder_embed, field_pos_embed, x['enc_len'])
         else:
             en_outputs, en_state = self.encoder(self.encoder_embed, x['enc_len'])
+        
+        if self.dual_att:
+            print('dual attention mechanism used')
+            self.att_layer = dualAttentionWrapper(self.hidden_size, self.hidden_size, self.field_attention_size, en_outputs, self.field_pos_embed)
+        else:
+            print('normal attention used')
+            self.att_layer = AttentionWrapper(self.hidden_size, self.hidden_size, en_outputs)
+        self.units['attention'] = self.att_layer
+        
         # ===== decode ===== #
         if x['dec_len'] != None:
             de_outputs, de_state = self.decoder_t(en_state, decoder_embed, x['dec_len'])
@@ -128,7 +157,7 @@ class SeqUnit(jt.Module):
             mask = jt.sign(jt.float32(x['dec_out']))
             losses = mask * losses
             self.mean_loss = jt.mean(losses)
-        return self.mean_loss, self.g_tokens, self.atts
+        return self.mean_loss
         
     def encoder(self, inputs, inputs_len):
         batch_size = inputs.shape[0]
@@ -377,7 +406,8 @@ class SeqUnit(jt.Module):
         return loop_vars[0], loop_vars[1], loop_vars[2], loop_vars[3]
             
     def generate(self, x):
-        pass
+        self.execute(x)
+        return self.mean_loss, self.g_tokens, self.atts
 
     def save(self, path):
         jt.save(self.params, path)

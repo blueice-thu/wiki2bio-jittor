@@ -84,7 +84,7 @@ def save_model(model, save_dir, cnt):
     return nnew_dir
 
 
-def train(dataloader, model):
+def train(dataloader, model: SeqUnit):
     model.train()
     write_log("#######################################################")
     for flag in args.__dict__:
@@ -95,13 +95,17 @@ def train(dataloader, model):
     loss, start_time = 0.0, time.time()
     for _ in range(args.epoch):
         for x in dataloader.batch_iter(trainset, args.batch_size, True):
-            loss += model(x)
+            model.optimizer.zero_grad()
+            loss_ = model(x)
+            loss_.backward()
+            model.optimizer.step()
+
+            loss += loss_
             k += 1
             progress_bar(k % args.report, args.report)
             if (k % args.report == 0):
                 cost_time = time.time() - start_time
-                write_log("%d : loss = %.3f, time = %.3f " %
-                          (k // args.report, loss, cost_time))
+                write_log("%d : loss = %.3f, time = %.3f " % (k // args.report, loss, cost_time))
                 loss, start_time = 0.0, time.time()
                 if k // args.report >= 1:
                     ksave_dir = save_model(model, save_dir, k // args.report)
@@ -125,7 +129,7 @@ def evaluate(dataloader, model, ksave_dir, mode='valid'):
     v = Vocab()
 
     # with copy
-    pred_list, pred_list_copy, gold_list = [], [], []
+    pred_list, gold_list = [], []
     pred_unk, pred_mask = [], []
 
     k = 0
@@ -199,11 +203,10 @@ def main():
     model = SeqUnit(batch_size=args.batch_size, hidden_size=args.hidden_size, emb_size=args.emb_size,
                     field_size=args.field_size, pos_size=args.pos_size, field_vocab=args.field_vocab,
                     source_vocab=args.source_vocab, position_vocab=args.position_vocab,
-                    target_vocab=args.target_vocab, scope_name="seq2seq", name="seq2seq",
+                    target_vocab=args.target_vocab, name="seq2seq",
                     field_concat=args.field, position_concat=args.position,
                     fgate_enc=args.fgate_encoder, dual_att=args.dual_attention, decoder_add_pos=args.decoder_pos,
                     encoder_add_pos=args.encoder_pos, learning_rate=args.learning_rate)
-    # TODO: initialize
     if args.load != '0':
         model.load(save_dir)
     if args.mode == 'train':
