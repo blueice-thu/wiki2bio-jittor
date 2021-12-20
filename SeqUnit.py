@@ -175,7 +175,7 @@ class SeqUnit(jt.Module):
         emit_ta = []
         
         def loop_fn(t, x_t, s_t, emit_ta, finished):
-            o_t, s_nt = self.enc_lstm(x_t, s_t, finished)
+            o_t, s_nt = self.enc_lstm(x_t, s_t, finished.unsqueeze(1))
             emit_ta.append(o_t)
             finished = (t+1) >= inputs_len
             x_nt = jt.zeros([batch_size, self.uni_size], dtype=jt.float32) \
