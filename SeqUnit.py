@@ -84,7 +84,14 @@ class SeqUnit(jt.Module):
         self.params['embedding'] = self.embedding
 
         self.optimizer = jt.nn.Adam(self.parameters(), learning_rate)
-
+        # TODO: dualAttentionWrapper init
+        if self.dual_att:
+            print('dual attention mechanism used')
+            self.att_layer = dualAttentionWrapper(self.hidden_size, self.hidden_size, self.field_attention_size, en_outputs, field_pos_embed)
+        else:
+            print('normal attention used')
+            self.att_layer = AttentionWrapper(self.hidden_size, self.hidden_size, en_outputs)
+        self.units['attention'] = self.att_layer
         # ======================================== encoder ======================================== #
         # if self.fgate_enc:
         #     print('field gated encoder used')
@@ -115,7 +122,7 @@ class SeqUnit(jt.Module):
         self.encoder_rpos: x['enc_rpos'], self.decoder_input: x['dec_in'],
         self.decoder_len: x['dec_len'], self.decoder_output: x['dec_out']}
         """
-        self.encoder_input = x['enc_in']
+        self.encoder_input = jt.array(x['enc_in'])
         encoder_embed = self.embedding[x['enc_in']]
         if x['dec_in'] != None:
             decoder_embed = self.embedding[x['dec_in']]
@@ -134,27 +141,28 @@ class SeqUnit(jt.Module):
             elif self.encoder_add_pos or self.decoder_add_pos:
                 field_pos_embed = jt.concat([field_embed, pos_embed, rpos_embed], dim=2)
         # ===== encode ===== #
+        x['enc_len'] = jt.array(x['enc_len'])
         if self.fgate_enc:
             en_outputs, en_state = self.fgate_encoder(encoder_embed, field_pos_embed, x['enc_len'])
         else:
             en_outputs, en_state = self.encoder(self.encoder_embed, x['enc_len'])
         
-        if self.dual_att:
-            print('dual attention mechanism used')
-            self.att_layer = dualAttentionWrapper(self.hidden_size, self.hidden_size, self.field_attention_size, en_outputs, self.field_pos_embed)
-        else:
-            print('normal attention used')
-            self.att_layer = AttentionWrapper(self.hidden_size, self.hidden_size, en_outputs)
-        self.units['attention'] = self.att_layer
-        
         # ===== decode ===== #
         if x['dec_len'] != None:
+            x['dec_len'] = jt.array(x['dec_len'])
             de_outputs, de_state = self.decoder_t(en_state, decoder_embed, x['dec_len'])
         self.g_tokens, self.atts = self.decoder_g(en_state)
         self.mean_loss = None
         if x['dec_out'] != None:
-            losses = jt.nn.cross_entropy_loss(output=de_outputs, target=x['dec_out'])
-            mask = jt.sign(jt.float32(x['dec_out']))
+            x['dec_out'] = jt.array(x['dec_out'])
+            batch_size, maxlen, _ = de_outputs.shape
+            losses = jt.nn.cross_entropy_loss(
+                output=de_outputs.reshape([batch_size*maxlen, -1]), 
+                target=x['dec_out'].reshape([-1]),
+                reduction='none'
+            )
+            losses = losses.reshape([batch_size, -1])
+            mask = jt.nn.sign(jt.float32(x['dec_out']))
             losses = mask * losses
             self.mean_loss = jt.mean(losses)
         return self.mean_loss
@@ -163,7 +171,7 @@ class SeqUnit(jt.Module):
         batch_size = inputs.shape[0]
         max_time = inputs.shape[1]
         hidden_size = self.hidden_size
-        time = jt.array(0)
+        time = 0
         h0 = (
             jt.zeros([batch_size, hidden_size], dtype=jt.float32),
             jt.zeros([batch_size, hidden_size], dtype=jt.float32)
@@ -192,7 +200,7 @@ class SeqUnit(jt.Module):
         max_time = inputs.shape[1]
         hidden_size = self.hidden_size
 
-        time = jt.array(0)
+        time = 0
         h0 = (
             jt.zeros([batch_size, hidden_size], dtype=jt.float32),
             jt.zeros([batch_size, hidden_size], dtype=jt.float32)
@@ -205,7 +213,7 @@ class SeqUnit(jt.Module):
         def loop_fn(t, x_t, d_t, s_t, emit_ta, finished):
             o_t, s_nt = self.enc_lstm(x_t, d_t, s_t, finished)
             emit_ta.append(o_t)
-            finished = t+1 >= inputs_len
+            finished = (t+1) >= inputs_len
             x_nt = jt.zeros([batch_size, self.uni_size], dtype=jt.float32) \
                 if jt.all(finished) else inputs_ta[t+1]
             d_nt = jt.zeros([batch_size, self.field_attention_size], dtype=jt.float32) \
@@ -221,7 +229,7 @@ class SeqUnit(jt.Module):
     def decoder_t(self, initial_state, inputs, inputs_len):
         batch_size = inputs.shape[0]
         max_time = inputs.shape[1]
-        time = jt.array(0)
+        time = 0
         h0 = initial_state
         f0 = jt.zeros([batch_size], dtype=jt.bool)
         x0 = self.embedding[jt.array([self.start_token] * batch_size)]
@@ -247,7 +255,7 @@ class SeqUnit(jt.Module):
     def decoder_g(self, initial_state):
         batch_size = self.encoder_input.shape[0]
         encoder_len = self.encoder_input.shape[1]
-        time = jt.array(0)
+        time = 0
         h0 = initial_state
         f0 = jt.zeros([batch_size], dtype=jt.bool)
         x0 = self.embedding[jt.array([self.start_token] * batch_size)]
@@ -260,24 +268,24 @@ class SeqUnit(jt.Module):
             o_t = self.dec_out(o_t, finished)
             emit_ta.append(o_t)
             att_ta.append(w_t)
-            next_token = jt.argmax(o_t, dim=1)
+            next_token, _ = jt.argmax(o_t, dim=1)
             x_nt = self.embedding[next_token]
-            finished = finished or (next_token == self.stop_token) \
-                or (t >= self.max_length)
+            finished = finished | (next_token == self.stop_token) \
+                | (t >= self.max_length)
             return t+1, x_nt, s_nt, finished
         
         while not jt.all(f0):
             time, x0, h0, f0 = loop_fn(time, x0, h0, emit_ta, att_ta, f0)
         
         outputs = jt.transpose(jt.stack(emit_ta, dim=0), [1,0,2])
-        pred_tokens = jt.argmax(outputs, dim=2)
+        pred_tokens, _ = jt.argmax(outputs, dim=2)
         atts = jt.stack(att_ta, dim=0)
         return pred_tokens, atts
     
     def decoder_beam(self, initial_state, beam_size):
         
         def beam_init():
-            time_1 = jt.array(1)
+            time_1 = 1
             beam_seqs_0 = jt.array([[self.start_token]] * beam_size)
             beam_probs_0 = jt.array([0.0] * beam_size)
 

@@ -9,6 +9,8 @@ from DataLoader import DataLoader
 from SeqUnit import SeqUnit
 from util import *
 
+# python -m debugpy --listen 5556 --wait-for-client main.py
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--hidden_size',    default=500,    type=int, help='Size of each layer.')
 parser.add_argument('--emb_size',       default=400,    type=int, help='Size of embedding.')
@@ -56,11 +58,11 @@ else:
     save_dir = 'results/res/' + prefix + '/'
     save_file_dir = save_dir + 'files/'
     pred_dir = 'results/evaluation/' + prefix + '/'
-    os.mkdir(save_dir)
+    os.makedirs(save_dir)
     if not os.path.exists(pred_dir):
-        os.mkdir(pred_dir)
+        os.makedirs(pred_dir)
     if not os.path.exists(save_file_dir):
-        os.mkdir(save_file_dir)
+        os.makedirs(save_file_dir)
     pred_path = pred_dir + 'pred_summary_'
     pred_beam_path = pred_dir + 'beam_summary_'
 
@@ -97,8 +99,7 @@ def train(dataloader, model: SeqUnit):
         for x in dataloader.batch_iter(trainset, args.batch_size, True):
             model.optimizer.zero_grad()
             loss_ = model(x)
-            loss_.backward()
-            model.optimizer.step()
+            model.optimizer.step(loss_)
 
             loss += loss_
             k += 1

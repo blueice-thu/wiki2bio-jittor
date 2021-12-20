@@ -28,6 +28,7 @@ class AttentionWrapper(jt.Module):
         context = jt.sum(self.hs * weights, dim=0)
         out = jt.tanh(jt.nn.matmul(jt.contrib.concat([context, x], dim=-1), self.Wo) + self.bo)
         if finished is not None:
+            finished = finished.unsqueeze(1)
             out = jt.array(np.where(finished, np.zeros_like(out), np.array(out)))
         return out, weights
     

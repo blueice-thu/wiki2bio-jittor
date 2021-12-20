@@ -15,6 +15,7 @@ class OutputUnit(jt.Module):
         out = jt.nn.matmul(x, self.W) + self.b
 
         if finished is not None:
+            finished = finished.unsqueeze(1)
             out = jt.array(np.where(finished, np.zeros_like(out), out))
             #out = tf.multiply(1 - finished, out)
         return out
