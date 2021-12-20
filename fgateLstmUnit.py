@@ -27,6 +27,7 @@ class fgateLstmUnit(jt.Module):
 
         out, state = h, (h, c)
         if finished is not None:
+            finished = finished.unsqueeze(1)
             out = jt.array(np.where(finished, np.zeros_like(h), np.array(h)))
             state = jt.array(np.where(finished, h_prev, h), np.where(finished, c_prev, c))
             # out = tf.multiply(1 - finished, h)
