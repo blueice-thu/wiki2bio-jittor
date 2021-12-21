@@ -83,15 +83,16 @@ class SeqUnit(jt.Module):
             self.params['rembedding'] = self.rembedding
         self.params['embedding'] = self.embedding
 
-        self.optimizer = jt.nn.Adam(self.parameters(), learning_rate)
-        # TODO: dualAttentionWrapper init
+
         if self.dual_att:
             print('dual attention mechanism used')
-            self.att_layer = dualAttentionWrapper(self.hidden_size, self.hidden_size, self.field_attention_size, en_outputs, field_pos_embed)
+            self.att_layer = dualAttentionWrapper(self.hidden_size, self.hidden_size, self.field_attention_size)
         else:
+            self.att_layer = AttentionWrapper(self.hidden_size, self.hidden_size)
             print('normal attention used')
-            self.att_layer = AttentionWrapper(self.hidden_size, self.hidden_size, en_outputs)
         self.units['attention'] = self.att_layer
+
+        self.optimizer = jt.nn.Adam(self.parameters(), learning_rate)
         # ======================================== encoder ======================================== #
         # if self.fgate_enc:
         #     print('field gated encoder used')
@@ -146,7 +147,8 @@ class SeqUnit(jt.Module):
             en_outputs, en_state = self.fgate_encoder(encoder_embed, field_pos_embed, x['enc_len'])
         else:
             en_outputs, en_state = self.encoder(self.encoder_embed, x['enc_len'])
-        
+        self.en_outputs = en_outputs
+        self.field_pos_embed = field_pos_embed
         # ===== decode ===== #
         if x['dec_len'] != None:
             x['dec_len'] = jt.array(x['dec_len'])
@@ -238,7 +240,7 @@ class SeqUnit(jt.Module):
         
         def loop_fn(t, x_t, s_t, emit_ta, finished):
             o_t, s_nt = self.dec_lstm(x_t, s_t, finished)
-            o_t, _ = self.att_layer(o_t)
+            o_t, _ = self.att_layer(o_t, self.en_outputs, self.field_pos_embed)
             o_t = self.dec_out(o_t, finished)
             emit_ta.append(o_t)
             finished = t >= inputs_len
@@ -264,7 +266,7 @@ class SeqUnit(jt.Module):
         
         def loop_fn(t, x_t, s_t, emit_ta, att_ta, finished):
             o_t, s_nt = self.dec_lstm(x_t, s_t, finished)
-            o_t, w_t = self.att_layer(o_t)
+            o_t, w_t = self.att_layer(o_t, self.en_outputs, self.field_pos_embed)
             o_t = self.dec_out(o_t, finished)
             emit_ta.append(o_t)
             att_ta.append(w_t)
@@ -296,7 +298,7 @@ class SeqUnit(jt.Module):
             x_t = self.embedding[inputs]
             print(x_t.shape)
             o_t, s_nt = self.dec_lstm(x_t, initial_state)
-            o_t, w_t = self.att_layer(o_t)
+            o_t, w_t = self.att_layer(o_t, self.en_outputs, self.field_pos_embed)
             o_t = self.dec_out(o_t)
             print(s_nt[0].shape)
             logprobs2d = jt.nn.log_softmax(o_t)
@@ -353,7 +355,7 @@ class SeqUnit(jt.Module):
             inputs = jt.reshape(beam_seqs[0:beam_size, time:time+1], [beam_size])
             x_t = self.embedding[inputs]
             o_t, s_nt = self.dec_lstm(x_t, states)
-            o_t, w_t = self.att_layer(o_t)
+            o_t, w_t = self.att_layer(o_t, self.en_outputs, self.field_pos_embed)
             o_t = self.dec_out(o_t)
             
             logprobs2d = jt.nn.log_softmax(o_t)

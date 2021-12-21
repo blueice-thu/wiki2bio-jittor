@@ -2,11 +2,10 @@ import numpy as np
 import jittor as jt
 
 class dualAttentionWrapper(jt.Module):
-    def __init__(self, hidden_size, input_size, field_size, hs, fds):
-        self.hs = jt.array(np.transpose(hs, [1,0,2]))  # input_len * batch * input_size
-        self.fds = jt.array(np.transpose(fds, [1,0,2]))
+    def __init__(self, hidden_size, input_size, field_size):
         self.hidden_size = hidden_size
         self.input_size = input_size
+        self.field_size = field_size
 
         self.Wh = jt.rand([input_size, hidden_size])
         self.bh = jt.zeros([hidden_size])
@@ -23,15 +22,17 @@ class dualAttentionWrapper(jt.Module):
             'bh': self.bh, 'bs': self.bs, 'bo': self.bo,
             'Wf': self.Wf, 'Wr': self.Wr, 
             'bf': self.bf, 'br': self.br}
-        
-        hs2d = jt.reshape(self.hs, [-1, input_size])
+    
+    def execute(self, x, hs, fds, finished = None):
+        self.hs = jt.transpose(hs, [1,0,2]) # input_len * batch * input_size
+        self.fds = jt.transpose(fds, [1,0,2])
+        hs2d = jt.reshape(self.hs, [-1, self.input_size])
         phi_hs2d = jt.tanh(jt.nn.matmul(hs2d, self.Wh) + self.bh)
         self.phi_hs = jt.reshape(phi_hs2d, self.hs.shape)
-        fds2d = jt.reshape(self.fds, [-1, field_size])
+        fds2d = jt.reshape(self.fds, [-1, self.field_size])
         phi_fds2d = jt.tanh(jt.nn.matmul(fds2d, self.Wf) + self.bf)
         self.phi_fds = jt.reshape(phi_fds2d, self.hs.shape)
-    
-    def execute(self, x, finished = None):
+
         gamma_h = jt.tanh(jt.nn.matmul(x, self.Ws) + self.bs)  # batch * hidden_size
         alpha_h = jt.tanh(jt.nn.matmul(x, self.Wr) + self.br)
         fd_weights = jt.sum(self.phi_fds * alpha_h, dim=2, keepdims=True)

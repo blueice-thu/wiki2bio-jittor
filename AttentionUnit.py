@@ -2,10 +2,9 @@ import jittor as jt
 import numpy as np
 
 class AttentionWrapper(jt.Module):
-    def __init__(self, hidden_size, input_size, hs):
+    def __init__(self, hidden_size, input_size):
         self.hidden_size = hidden_size
         self.input_size = input_size
-        self.hs = jt.array(np.transpose(hs, [1, 0, 2]))
         
         self.Wh = jt.rand([input_size, hidden_size])
         self.bh = jt.zeros([hidden_size])
@@ -16,11 +15,13 @@ class AttentionWrapper(jt.Module):
         self.params = {'Wh': self.Wh, 'Ws': self.Ws, 'Wo': self.Wo,
             'bh': self.bh, 'bs': self.bs, 'bo': self.bo}
         
-        hs2d = jt.reshape(self.hs, [-1, input_size])
+    
+    def execute(self, x, hs, fds, finished = None):
+        self.hs = jt.transpose(hs, [1, 0, 2])
+        hs2d = jt.reshape(self.hs, [-1, self.input_size])
         phi_hs2d = jt.tanh(jt.nn.matmul(hs2d, self.Wh) + self.bh)
         self.phi_hs = jt.reshape(phi_hs2d, self.hs.shape)
-    
-    def execute(self, x, finished = None):
+
         gamma_h = jt.tanh(jt.nn.matmul(x, self.Ws) + self.bs)
         weights = jt.sum(self.phi_hs * gamma_h, dim=2, keepdims=True)
         weights = jt.exp(weights - jt.max(weights, dim=0, keepdims=True))
