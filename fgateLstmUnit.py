@@ -7,20 +7,17 @@ class fgateLstmUnit(jt.Module):
         self.input_size = input_size
         self.field_size = field_size
 
-        self.W = jt.rand([self.input_size+self.hidden_size, 4*self.hidden_size])
-        self.b = jt.zeros([4*self.hidden_size])
-        self.W1 = jt.rand([self.field_size, 2*self.hidden_size])
-        self.b1 = jt.zeros([2*hidden_size])
-
-        self.params = {'W':self.W, 'b':self.b, 'W1':self.W1, 'b1':self.b1}
+        self.linear = jt.nn.Linear(self.input_size+self.hidden_size, 4*self.hidden_size)
+        self.linear1 = jt.nn.Linear(self.field_size, 2*self.hidden_size)
+        self.params = {}
 
     def execute(self, x, fd, s, finished = None):
         h_prev, c_prev = s  # batch * hidden_size
 
         x = jt.contrib.concat([x, h_prev], 1)
         # fd = tf.concat([fd, h_prev], 1)
-        i, j, f, o = jt.chunk(jt.nn.matmul(x, self.W) + self.b, 4, 1)
-        r, d = jt.chunk(jt.nn.matmul(fd, self.W1) + self.b1, 2, 1)
+        i, j, f, o = jt.chunk(self.linear(x), 4, 1)
+        r, d = jt.chunk(self.linear1(fd), 2, 1)
         # Final Memory cell
         c = jt.sigmoid(f+1.0) * c_prev + jt.sigmoid(i) * jt.tanh(j) + jt.sigmoid(r) * jt.tanh(d)  # batch * hidden_size
         h = jt.sigmoid(o) * jt.tanh(c)

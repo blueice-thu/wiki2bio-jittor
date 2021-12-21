@@ -6,16 +6,14 @@ class LstmUnit(jt.Module):
         self.hidden_size = hidden_size
         self.input_size = input_size
 
-        self.W = jt.rand([self.input_size+self.hidden_size, 4*self.hidden_size])
-        self.b = jt.zeros([4*self.hidden_size])
-
-        self.params = {'W':self.W, 'b':self.b}
+        self.linear = jt.nn.Linear(self.input_size+self.hidden_size, 4*self.hidden_size)
+        self.params = {}
     
     def execute(self, x, s, finished = None):
         h_prev, c_prev = s
 
         x = jt.contrib.concat([x, h_prev], 1)
-        i, j, f, o = jt.chunk(jt.nn.matmul(x, self.W) + self.b, 4, 1)
+        i, j, f, o = jt.chunk(self.linear(x), 4, 1)
 
         # Final Memory cell
         c = jt.sigmoid(f+1.0) * c_prev + jt.sigmoid(i) * jt.tanh(j)

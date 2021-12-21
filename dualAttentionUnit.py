@@ -50,7 +50,8 @@ class dualAttentionWrapper(jt.Module):
 
         if finished is not None:
             finished = finished.unsqueeze(1)
-            out = jt.array(np.where(finished, np.zeros_like(out), np.array(out)))
+            inds = jt.where(finished)[0]
+            out[inds] = 0
         return out, weights
     
     def save(self, path):
