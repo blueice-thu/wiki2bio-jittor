@@ -56,18 +56,22 @@ class SeqUnit(jt.Module):
 
         self.units = {'encoder_lstm': self.enc_lstm,'decoder_lstm': self.dec_lstm, 'decoder_output': self.dec_out}
 
-        self.embedding = jt.rand([self.source_vocab, self.emb_size])
+        self.embedding = jt.nn.Embedding(self.source_vocab, self.emb_size)
+        self.embedding.require_grad = True
         # self.encoder_embed = tf.nn.embedding_lookup(self.embedding, self.encoder_input)
         # self.decoder_embed = tf.nn.embedding_lookup(self.embedding, self.decoder_input)
         if self.field_concat or self.fgate_enc or self.encoder_add_pos or self.decoder_add_pos:
-            self.fembedding = jt.rand([self.field_vocab, self.field_size])
+            self.fembedding = jt.nn.Embedding(self.field_vocab, self.field_size)
+            self.fembedding.require_grad = True
             # self.field_embed = tf.nn.embedding_lookup(self.fembedding, self.encoder_field)
             # self.field_pos_embed = self.field_embed
             # if self.field_concat:
             #     self.encoder_embed = jt.contrib.concat([self.encoder_embed, self.field_embed], 2)
         if self.position_concat or self.encoder_add_pos or self.decoder_add_pos:
-            self.pembedding = jt.rand([self.position_vocab, self.pos_size])
-            self.rembedding = jt.rand([self.position_vocab, self.pos_size])
+            self.pembedding = jt.nn.Embedding(self.position_vocab, self.pos_size)
+            self.pembedding.require_grad = True
+            self.rembedding = jt.nn.Embedding(self.position_vocab, self.pos_size)
+            self.rembedding.require_grad = True
             # self.pos_embed = tf.nn.embedding_lookup(self.pembedding, self.encoder_pos)
             # self.rpos_embed = tf.nn.embedding_lookup(self.rembedding, self.encoder_rpos)
             # if position_concat:
@@ -123,19 +127,23 @@ class SeqUnit(jt.Module):
         self.encoder_rpos: x['enc_rpos'], self.decoder_input: x['dec_in'],
         self.decoder_len: x['dec_len'], self.decoder_output: x['dec_out']}
         """
-        self.encoder_input = jt.array(x['enc_in'])
-        encoder_embed = self.embedding[x['enc_in']]
+        self.encoder_input = x['enc_in'] = jt.array(x['enc_in'])
+        encoder_embed = self.embedding(self.encoder_input)
         if x['dec_in'] != None:
-            decoder_embed = self.embedding[x['dec_in']]
+            x['dec_in'] = jt.array(x['dec_in'])
+            decoder_embed = self.embedding(x['dec_in'])
         if self.field_concat or self.fgate_enc or\
             self.encoder_add_pos or self.decoder_add_pos:
-            field_embed = self.fembedding[x['enc_fd']]
+            x['enc_fd'] = jt.array(x['enc_fd'])
+            field_embed = self.fembedding(x['enc_fd'])
             field_pos_embed = field_embed
             if self.field_concat:
                 encoder_embed = jt.concat([encoder_embed, field_embed], dim=2)
         if self.position_concat or self.encoder_add_pos or self.decoder_add_pos:
-            pos_embed = self.pembedding[x['enc_pos']]
-            rpos_embed = self.rembedding[x['enc_rpos']]
+            x['enc_pos'] = jt.array(x['enc_pos'])
+            x['enc_rpos'] = jt.array(x['enc_rpos'])
+            pos_embed = self.pembedding(x['enc_pos'])
+            rpos_embed = self.rembedding(x['enc_rpos'])
             if self.position_concat:
                 encoder_embed = jt.concat([encoder_embed, pos_embed, rpos_embed], dim=2)
                 field_pos_embed = jt.concat([field_embed, pos_embed, rpos_embed], dim=2)
@@ -234,7 +242,7 @@ class SeqUnit(jt.Module):
         time = 0
         h0 = initial_state
         f0 = jt.zeros([batch_size], dtype=jt.bool)
-        x0 = self.embedding[jt.array([self.start_token] * batch_size)]
+        x0 = self.embedding(jt.array([self.start_token] * batch_size))
         inputs_ta = jt.transpose(inputs, [1,0,2])
         emit_ta = []
         
@@ -260,7 +268,7 @@ class SeqUnit(jt.Module):
         time = 0
         h0 = initial_state
         f0 = jt.zeros([batch_size], dtype=jt.bool)
-        x0 = self.embedding[jt.array([self.start_token] * batch_size)]
+        x0 = self.embedding(jt.array([self.start_token] * batch_size))
         emit_ta = []
         att_ta = []
         
@@ -271,7 +279,7 @@ class SeqUnit(jt.Module):
             emit_ta.append(o_t)
             att_ta.append(w_t)
             next_token, _ = jt.argmax(o_t, dim=1)
-            x_nt = self.embedding[next_token]
+            x_nt = self.embedding(next_token)
             finished = finished | (next_token == self.stop_token) \
                 | (t >= self.max_length)
             return t+1, x_nt, s_nt, finished
@@ -295,7 +303,7 @@ class SeqUnit(jt.Module):
             cand_probs_0 = jt.array([-3e38])
             
             inputs = jt.array([self.start_token])
-            x_t = self.embedding[inputs]
+            x_t = self.embedding(inputs)
             print(x_t.shape)
             o_t, s_nt = self.dec_lstm(x_t, initial_state)
             o_t, w_t = self.att_layer(o_t, self.en_outputs, self.field_pos_embed)
@@ -353,7 +361,7 @@ class SeqUnit(jt.Module):
         
         def beam_step(beam_seqs, beam_probs, cand_seqs, cand_probs, states, time):
             inputs = jt.reshape(beam_seqs[0:beam_size, time:time+1], [beam_size])
-            x_t = self.embedding[inputs]
+            x_t = self.embedding(inputs)
             o_t, s_nt = self.dec_lstm(x_t, states)
             o_t, w_t = self.att_layer(o_t, self.en_outputs, self.field_pos_embed)
             o_t = self.dec_out(o_t)

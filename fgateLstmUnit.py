@@ -19,8 +19,8 @@ class fgateLstmUnit(jt.Module):
 
         x = jt.contrib.concat([x, h_prev], 1)
         # fd = tf.concat([fd, h_prev], 1)
-        i, j, f, o = np.split(jt.nn.matmul(x, self.W) + self.b, 4, 1)
-        r, d = np.split(jt.nn.matmul(fd, self.W1) + self.b1, 2, 1)
+        i, j, f, o = jt.chunk(jt.nn.matmul(x, self.W) + self.b, 4, 1)
+        r, d = jt.chunk(jt.nn.matmul(fd, self.W1) + self.b1, 2, 1)
         # Final Memory cell
         c = jt.sigmoid(f+1.0) * c_prev + jt.sigmoid(i) * jt.tanh(j) + jt.sigmoid(r) * jt.tanh(d)  # batch * hidden_size
         h = jt.sigmoid(o) * jt.tanh(c)
@@ -28,11 +28,12 @@ class fgateLstmUnit(jt.Module):
         out, state = h, (h, c)
         if finished is not None:
             finished = finished.unsqueeze(1)
-            out = jt.array(np.where(finished, np.zeros_like(h), np.array(h)))
-            state = (jt.array(np.where(finished, h_prev, h)), jt.array(np.where(finished, c_prev, c)))
-            # out = tf.multiply(1 - finished, h)
-            # state = (tf.multiply(1 - finished, h) + tf.multiply(finished, h_prev),
-            #          tf.multiply(1 - finished, c) + tf.multiply(finished, c_prev))
+            inds = jt.where(finished)[0]
+            out[inds] = 0
+            state[0][inds] = h_prev[inds]
+            state[1][inds] = c_prev[inds]
+            # out = jt.array(np.where(finished, np.zeros_like(h), np.array(h)))
+            # state = (jt.array(np.where(finished, h_prev, h)), jt.array(np.where(finished, c_prev, c)))
 
         return out, state
     
