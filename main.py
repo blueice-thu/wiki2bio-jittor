@@ -136,9 +136,9 @@ def evaluate(dataloader, model, ksave_dir, mode='valid'):
     k = 0
     for x in dataloader.batch_iter(evalset, args.batch_size, False):
         predictions, atts = model.generate(x)
-        atts = np.squeeze(atts)
+        atts = np.squeeze(atts.data)
         idx = 0
-        for summary in np.array(predictions):
+        for summary in predictions.data:
             with open(pred_path + str(k), 'w') as sw:
                 summary = list(summary)
                 if 2 in summary:
