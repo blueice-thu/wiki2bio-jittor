@@ -392,7 +392,7 @@ class SeqUnit(jt.Module):
             
     def generate(self, x):
         self.execute(x)
-        return self.mean_loss, self.g_tokens, self.atts
+        return self.g_tokens, self.atts
 
     def save(self, path):
         for u in self.units:
