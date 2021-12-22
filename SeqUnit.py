@@ -6,6 +6,8 @@ from LstmUnit import LstmUnit
 from fgateLstmUnit import fgateLstmUnit
 from OutputUnit import OutputUnit
 
+jt.flags.use_cuda = 1
+
 class SeqUnit(jt.Module):
     def __init__(self, batch_size, hidden_size, emb_size, field_size, pos_size, source_vocab, field_vocab,
             position_vocab, target_vocab, field_concat, position_concat, fgate_enc, dual_att,
@@ -58,27 +60,14 @@ class SeqUnit(jt.Module):
 
         self.embedding = jt.nn.Embedding(self.source_vocab, self.emb_size)
         self.embedding.require_grad = True
-        # self.encoder_embed = tf.nn.embedding_lookup(self.embedding, self.encoder_input)
-        # self.decoder_embed = tf.nn.embedding_lookup(self.embedding, self.decoder_input)
         if self.field_concat or self.fgate_enc or self.encoder_add_pos or self.decoder_add_pos:
             self.fembedding = jt.nn.Embedding(self.field_vocab, self.field_size)
             self.fembedding.require_grad = True
-            # self.field_embed = tf.nn.embedding_lookup(self.fembedding, self.encoder_field)
-            # self.field_pos_embed = self.field_embed
-            # if self.field_concat:
-            #     self.encoder_embed = jt.contrib.concat([self.encoder_embed, self.field_embed], 2)
         if self.position_concat or self.encoder_add_pos or self.decoder_add_pos:
             self.pembedding = jt.nn.Embedding(self.position_vocab, self.pos_size)
             self.pembedding.require_grad = True
             self.rembedding = jt.nn.Embedding(self.position_vocab, self.pos_size)
             self.rembedding.require_grad = True
-            # self.pos_embed = tf.nn.embedding_lookup(self.pembedding, self.encoder_pos)
-            # self.rpos_embed = tf.nn.embedding_lookup(self.rembedding, self.encoder_rpos)
-            # if position_concat:
-            #     self.encoder_embed = jt.contrib.concat([self.encoder_embed, self.pos_embed, self.rpos_embed], 2)
-            #     self.field_pos_embed = jt.contrib.concat([self.field_embed, self.pos_embed, self.rpos_embed], 2)
-            # elif self.encoder_add_pos or self.decoder_add_pos:
-            #     self.field_pos_embed = jt.contrib.concat([self.field_embed, self.pos_embed, self.rpos_embed], 2)
         
         if self.field_concat or self.fgate_enc:
             self.params['fembedding'] = self.fembedding
@@ -97,28 +86,6 @@ class SeqUnit(jt.Module):
         self.units['attention'] = self.att_layer
 
         self.optimizer = jt.nn.Adam(self.parameters(), learning_rate)
-        # ======================================== encoder ======================================== #
-        # if self.fgate_enc:
-        #     print('field gated encoder used')
-        #     en_outputs, en_state = self.fgate_encoder(self.encoder_embed, self.field_pos_embed, self.encoder_len)
-        # else:
-        #     print('normal encoder used')
-        #     en_outputs, en_state = self.encoder(self.encoder_embed, self.encoder_len)
-        
-        # ======================================== decoder ======================================== #
-        # if self.dual_att:
-        #     print('dual attention mechanism used')
-        #     self.att_layer = dualAttentionWrapper(self.hidden_size, self.hidden_size, self.field_attention_size, en_outputs, self.field_pos_embed)
-        # else:
-        #     print('normal attention used')
-        #     self.att_layer = AttentionWrapper(self.hidden_size, self.hidden_size, en_outputs)
-        # self.units['attention'] = self.att_layer
-
-        # TODO
-        # tvars = tf.trainable_variables()
-        # grads, _ = tf.clip_by_global_norm(tf.gradients(self.mean_loss, tvars), self.grad_clip)
-        # optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-        # self.train_op = optimizer.apply_gradients(zip(grads, tvars))
     
     def execute(self, x):
         """ 
@@ -428,10 +395,14 @@ class SeqUnit(jt.Module):
         return self.mean_loss, self.g_tokens, self.atts
 
     def save(self, path):
-        jt.save(self.params, path)
+        for u in self.units:
+            self.units[u].save(path + u + ".pkl")
+        jt.save(self.params, path + self.name + ".pkl")
     
     def load(self, path):
-        params = jt.load(path)
+        for u in self.units:
+            self.units[u].load(path + u + ".pkl")
+        params = jt.load(path + self.name + ".pkl")
         for param in params:
             self.params[param].assign(params[param])
 

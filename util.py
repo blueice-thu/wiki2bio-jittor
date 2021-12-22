@@ -8,9 +8,12 @@ import shutil
 TOTAL_BAR_LENGTH = 100.
 last_time = time.time()
 begin_time = last_time
-print(os.popen('stty size', 'r').read())
-_, term_width = os.popen('stty size', 'r').read().split()
-term_width = int(term_width)
+try:
+    print(os.popen('stty size', 'r').read())
+    _, term_width = os.popen('stty size', 'r').read().split()
+    term_width = int(term_width)
+except Exception as e:
+    term_width = 150
 
 
 def progress_bar(current, total, msg=None):
