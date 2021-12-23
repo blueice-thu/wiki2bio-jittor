@@ -110,13 +110,12 @@ def train(dataloader, model: SeqUnit):
             loss += loss_
             k += 1
             progress_bar(k % args.report, args.report)
-            if (k % args.report == 0):
+            if k % args.report == 0:
                 cost_time = time.time() - start_time
                 write_log("%d : loss = %.3f, time = %.3f " % (k // args.report, loss, cost_time))
                 loss, start_time = 0.0, time.time()
-                if k // args.report >= 1:
-                    ksave_dir = save_model(model, save_dir, k // args.report)
-                    write_log(evaluate(dataloader, model, ksave_dir, 'valid'))
+                ksave_dir = save_model(model, save_dir, k // args.report)
+                # write_log(evaluate(dataloader, model, ksave_dir, 'valid'))
 
 
 def evaluate(dataloader, model, ksave_dir, mode='valid'):
@@ -188,8 +187,8 @@ def evaluate(dataloader, model, ksave_dir, mode='valid'):
     nocopy_result = "without copy F_measure: %s Recall: %s Precision: %s BLEU: %s\n" % \
         (str(F_measure), str(recall), str(precision), str(bleu))
     result = copy_result + nocopy_result
-    if mode == 'valid':
-        print(result)
+    # if mode == 'valid':
+    print(result)
 
     return result
 
