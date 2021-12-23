@@ -404,10 +404,4 @@ class SeqUnit(jt.Module):
             self.units[u].load(path + u + ".pkl")
         params = jt.load(path + self.name + ".pkl")
         for param in params:
-            self.params[param].assign(params[param])
-
-
-def embedding_lookup(params, ids):
-    # TODO: implement tf.embedding_lookup
-    # REF: https://www.tensorflow.org/api_docs/python/tf/nn/embedding_lookup
-    return jt.array()
+            self.params[param].load_state_dict(params[param].state_dict())
