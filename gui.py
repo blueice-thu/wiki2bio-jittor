@@ -125,7 +125,7 @@ if __name__ == "__main__":
                     field_concat=args.field, position_concat=args.position,
                     fgate_enc=args.fgate_encoder, dual_att=args.dual_attention, decoder_add_pos=args.decoder_pos,
                     encoder_add_pos=args.encoder_pos, learning_rate=args.learning_rate)
-    save_dir = 'results/res/' + args.load + '/'
+    save_dir = 'results/res/demo/'
     model.load(save_dir)
 
     app = QtWidgets.QApplication([])
