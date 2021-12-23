@@ -71,7 +71,8 @@ class MyWindow(QtWidgets.QMainWindow):
     def generate(self):
         self.model.eval()
 
-        x = {'enc_in': [], 'enc_fd': [], 'enc_pos': [], 'enc_rpos': [], 'enc_len': []}
+        x = {'enc_in': [], 'enc_fd': [], 'enc_pos': [], 'enc_rpos': [], 'enc_len': [],
+             'dec_in': None, 'dec_len': None, 'dec_out': None}
 
         tmp_text = [list(t.strip().split()) for t in self.content]
         tmp_text = [[self.v.word2id(w) for w in t] for t in tmp_text]
