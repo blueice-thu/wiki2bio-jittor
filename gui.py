@@ -3,7 +3,6 @@ import argparse
 import os
 import sys
 
-import numpy as np
 from PyQt5 import QtWidgets, QtCore
 from form import Ui_Widget
 from preProcess import Vocab
@@ -46,7 +45,6 @@ class MyWindow(QtWidgets.QMainWindow):
         self.ui.setupUi(self)
         self.header = []
         self.content = []
-        self.summary = ""
         self.model = model
 
         self.v = Vocab()
@@ -64,20 +62,16 @@ class MyWindow(QtWidgets.QMainWindow):
         self.ui.input_display.append(text)
 
     def submit(self):
-        self.summary = self.ui.summary.toPlainText()
         self.generate()
 
         self.header = []
         self.content = []
-        self.summary = ""
         self.ui.input_display.clear()
-        self.ui.summary.clear()
 
     def generate(self):
         self.model.eval()
 
-        x = {'enc_in': [], 'enc_fd': [], 'enc_pos': [], 'enc_rpos': [], 'enc_len': [],
-             'dec_in': [], 'dec_len': [], 'dec_out': []}
+        x = {'enc_in': [], 'enc_fd': [], 'enc_pos': [], 'enc_rpos': [], 'enc_len': []}
 
         tmp_text = [list(t.strip().split()) for t in self.content]
         tmp_text = [[self.v.word2id(w) for w in t] for t in tmp_text]
@@ -90,10 +84,7 @@ class MyWindow(QtWidgets.QMainWindow):
             field.extend(tmp_field[i])
             pos.extend(tmp_pos[i])
             rpos.extend(tmp_rpos[i])
-        summary = [self.v.word2id(t) for t in list(self.summary.strip().split())]
-        gold = summary + [2]
 
-        summary_len = len(summary)
         text_len = len(text)
 
         x['enc_in'].append(text)
@@ -101,9 +92,6 @@ class MyWindow(QtWidgets.QMainWindow):
         x['enc_fd'].append(field)
         x['enc_pos'].append(pos)
         x['enc_rpos'].append(rpos)
-        x['dec_in'].append(summary)
-        x['dec_len'].append(summary_len)
-        x['dec_out'].append(gold)
 
         predictions, _ = model.generate(x)
         summary = list(predictions.data[0])

@@ -17,9 +17,9 @@
    <property name="geometry">
     <rect>
      <x>30</x>
-     <y>20</y>
+     <y>30</y>
      <width>751</width>
-     <height>113</height>
+     <height>141</height>
     </rect>
    </property>
    <layout class="QHBoxLayout" name="horizontalLayout" stretch="3,7">
@@ -114,7 +114,7 @@
    <property name="geometry">
     <rect>
      <x>690</x>
-     <y>140</y>
+     <y>190</y>
      <width>93</width>
      <height>28</height>
     </rect>
@@ -127,36 +127,11 @@
    <property name="geometry">
     <rect>
      <x>30</x>
-     <y>260</y>
+     <y>240</y>
      <width>751</width>
-     <height>121</height>
+     <height>141</height>
     </rect>
    </property>
-  </widget>
-  <widget class="QWidget" name="horizontalLayoutWidget">
-   <property name="geometry">
-    <rect>
-     <x>30</x>
-     <y>178</y>
-     <width>751</width>
-     <height>71</height>
-    </rect>
-   </property>
-   <layout class="QHBoxLayout" name="horizontalLayout_2">
-    <item>
-     <widget class="QLabel" name="label_4">
-      <property name="text">
-       <string>summary</string>
-      </property>
-      <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
-      </property>
-     </widget>
-    </item>
-    <item>
-     <widget class="QTextEdit" name="summary"/>
-    </item>
-   </layout>
   </widget>
  </widget>
  <resources/>
