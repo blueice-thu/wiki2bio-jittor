@@ -95,18 +95,18 @@
     </rect>
    </property>
    <layout class="QGridLayout" name="gridLayout_3">
-    <item row="0" column="0">
+    <item row="1" column="1">
+     <widget class="QTextBrowser" name="result"/>
+    </item>
+    <item row="0" column="1">
      <widget class="QLabel" name="label_3">
       <property name="text">
        <string>result</string>
       </property>
       <property name="alignment">
-       <set>Qt::AlignRight|Qt::AlignTop|Qt::AlignTrailing</set>
+       <set>Qt::AlignHCenter|Qt::AlignTop</set>
       </property>
      </widget>
-    </item>
-    <item row="0" column="1">
-     <widget class="QTextBrowser" name="result"/>
     </item>
    </layout>
   </widget>
