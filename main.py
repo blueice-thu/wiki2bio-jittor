@@ -42,6 +42,12 @@ args = parser.parse_args()
 
 gold_path_test = 'processed_data/test/test_split_for_rouge/gold_summary_'
 gold_path_valid = 'processed_data/valid/valid_split_for_rouge/gold_summary_'
+texts_path_test = "processed_data/test/test.box.val"
+texts_path_valid = "processed_data/valid/valid.box.val"
+texts_test = None
+texts_valid = None
+v = Vocab()
+
 
 if args.load != '0':
     save_dir = 'results/res/' + args.load + '/'
@@ -116,18 +122,13 @@ def train(dataloader, model: SeqUnit):
 def evaluate(dataloader, model, ksave_dir, mode='valid'):
     model.eval()
     if mode == 'valid':
-        texts_path = "processed_data/valid/valid.box.val"
+        texts = texts_valid
         gold_path = gold_path_valid
         evalset = dataloader.dev_set
     else:
-        texts_path = "processed_data/test/test.box.val"
+        texts = texts_test
         gold_path = gold_path_test
         evalset = dataloader.test_set
-
-    # for copy words from the infoboxes
-    texts = open(texts_path, 'r').read().strip().split('\n')
-    texts = [list(t.strip().split()) for t in texts]
-    v = Vocab()
 
     # with copy
     pred_list, gold_list = [], []
@@ -200,6 +201,15 @@ def test(dataloader, model):
 def main():
     copy_file(save_file_dir)
     dataloader = DataLoader(args.dir, args.limits)
+
+    # for copy words from the infoboxes
+    global texts_test
+    texts_test = open(texts_path_test, 'r').read().strip().split('\n')
+    texts_test = [list(t.strip().split()) for t in texts_test]
+    global texts_valid
+    texts_valid = open(texts_path_valid, 'r').read().strip().split('\n')
+    texts_valid = [list(t.strip().split()) for t in texts_valid]
+
     # TODO
     model = SeqUnit(batch_size=args.batch_size, hidden_size=args.hidden_size, emb_size=args.emb_size,
                     field_size=args.field_size, pos_size=args.pos_size, field_vocab=args.field_vocab,
