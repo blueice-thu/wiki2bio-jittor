@@ -159,7 +159,7 @@ class Vocab(object):
         vocab['END_TOKEN'] = 2
         vocab['UNK_TOKEN'] = 3
         cnt = 4
-        with open("original_data/word_vocab.txt", "r") as v:
+        with open("original_data/word_vocab.txt", "r", encoding='utf-8') as v:
             for line in v:
                 word = line.strip().split()[0]
                 vocab[word] = cnt
@@ -173,7 +173,7 @@ class Vocab(object):
         key_map['END_TOKEN'] = 2
         key_map['UNK_TOKEN'] = 3
         cnt = 4
-        with open("original_data/field_vocab.txt", "r") as v:
+        with open("original_data/field_vocab.txt", "r", encoding='utf-8') as v:
             for line in v:
                 key = line.strip().split()[0]
                 key_map[key] = cnt
