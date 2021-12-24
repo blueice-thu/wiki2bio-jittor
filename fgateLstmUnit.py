@@ -9,7 +9,7 @@ class fgateLstmUnit(jt.Module):
 
         self.linear = jt.nn.Linear(self.input_size+self.hidden_size, 4*self.hidden_size)
         self.linear1 = jt.nn.Linear(self.field_size, 2*self.hidden_size)
-        self.params = {}
+        self.params = {'linear': self.linear, 'linear1': self.linear1}
 
     def execute(self, x, fd, s, finished = None):
         h_prev, c_prev = s  # batch * hidden_size
@@ -40,4 +40,4 @@ class fgateLstmUnit(jt.Module):
     def load(self, path):
         params = jt.load(path)
         for param in params:
-            self.params[param].assign(params[param])
+            self.params[param].load_state_dict(params[param].state_dict())
