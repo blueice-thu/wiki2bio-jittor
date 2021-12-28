@@ -8,8 +8,7 @@ from preProcess import Vocab
 from DataLoader import DataLoader
 from SeqUnit import SeqUnit
 from util import *
-
-# python -m debugpy --listen 5556 --wait-for-client main.py
+import jittor as jt
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--hidden_size',    default=500,    type=int, help='Size of each layer.')
@@ -88,7 +87,7 @@ def save_model(model, save_dir, cnt):
     nnew_dir = new_dir + str(cnt) + '/'
     if not os.path.exists(nnew_dir):
         os.mkdir(nnew_dir)
-    model.save(nnew_dir)
+    jt.save(model, nnew_dir + 'model.pkl')
     return nnew_dir
 
 
@@ -209,16 +208,16 @@ def main():
     texts_valid = open(texts_path_valid, 'r').read().strip().split('\n')
     texts_valid = [list(t.strip().split()) for t in texts_valid]
 
-    # TODO
-    model = SeqUnit(batch_size=args.batch_size, hidden_size=args.hidden_size, emb_size=args.emb_size,
-                    field_size=args.field_size, pos_size=args.pos_size, field_vocab=args.field_vocab,
-                    source_vocab=args.source_vocab, position_vocab=args.position_vocab,
-                    target_vocab=args.target_vocab, name="seq2seq",
-                    field_concat=args.field, position_concat=args.position,
-                    fgate_enc=args.fgate_encoder, dual_att=args.dual_attention, decoder_add_pos=args.decoder_pos,
-                    encoder_add_pos=args.encoder_pos, learning_rate=args.learning_rate)
     if args.load != '0':
-        model.load(save_dir)
+        model = jt.load(save_dir)
+    else:
+        model = SeqUnit(batch_size=args.batch_size, hidden_size=args.hidden_size, emb_size=args.emb_size,
+                        field_size=args.field_size, pos_size=args.pos_size, field_vocab=args.field_vocab,
+                        source_vocab=args.source_vocab, position_vocab=args.position_vocab,
+                        target_vocab=args.target_vocab, name="seq2seq",
+                        field_concat=args.field, position_concat=args.position,
+                        fgate_enc=args.fgate_encoder, dual_att=args.dual_attention, decoder_add_pos=args.decoder_pos,
+                        encoder_add_pos=args.encoder_pos, learning_rate=args.learning_rate)
     if args.mode == 'train':
         train(dataloader, model)
     else:

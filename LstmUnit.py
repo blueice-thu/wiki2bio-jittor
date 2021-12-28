@@ -7,7 +7,6 @@ class LstmUnit(jt.Module):
         self.input_size = input_size
 
         self.linear = jt.nn.Linear(self.input_size+self.hidden_size, 4*self.hidden_size)
-        self.params = {'linear': self.linear}
     
     def execute(self, x, s, finished = None):
         h_prev, c_prev = s
@@ -28,11 +27,3 @@ class LstmUnit(jt.Module):
             state[1][inds] = c_prev[inds]
 
         return out, state
-        
-    def save(self, path):
-        jt.save(self.params, path)
-    
-    def load(self, path):
-        params = jt.load(path)
-        for param in params:
-            self.params[param].load_state_dict(params[param].state_dict())

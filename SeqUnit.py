@@ -47,16 +47,12 @@ class SeqUnit(jt.Module):
         self.decoder_output = jt.int32([])
         self.enc_mask = jt.nn.sign(jt.float32(self.encoder_pos))
 
-        self.params = {}
-
         if self.fgate_enc:
             self.enc_lstm = fgateLstmUnit(self.hidden_size, self.uni_size, self.field_encoder_size)
         else:
             self.enc_lstm = LstmUnit(self.hidden_size, self.uni_size)
         self.dec_lstm = LstmUnit(self.hidden_size, self.emb_size)
         self.dec_out = OutputUnit(self.hidden_size, self.target_vocab)
-
-        self.units = {'encoder_lstm': self.enc_lstm,'decoder_lstm': self.dec_lstm, 'decoder_output': self.dec_out}
 
         self.embedding = jt.nn.Embedding(self.source_vocab, self.emb_size)
         self.embedding.require_grad = True
@@ -69,21 +65,12 @@ class SeqUnit(jt.Module):
             self.rembedding = jt.nn.Embedding(self.position_vocab, self.pos_size)
             self.rembedding.require_grad = True
         
-        if self.field_concat or self.fgate_enc:
-            self.params['fembedding'] = self.fembedding
-        if self.position_concat or self.encoder_add_pos or self.decoder_add_pos:
-            self.params['pembedding'] = self.pembedding
-            self.params['rembedding'] = self.rembedding
-        self.params['embedding'] = self.embedding
-
-
         if self.dual_att:
             print('dual attention mechanism used')
             self.att_layer = dualAttentionWrapper(self.hidden_size, self.hidden_size, self.field_attention_size)
         else:
             self.att_layer = AttentionWrapper(self.hidden_size, self.hidden_size)
             print('normal attention used')
-        self.units['attention'] = self.att_layer
 
         self.optimizer = jt.nn.Adam(self.parameters(), learning_rate)
     
@@ -393,15 +380,3 @@ class SeqUnit(jt.Module):
     def generate(self, x):
         self.execute(x)
         return self.g_tokens, self.atts
-
-    def save(self, path):
-        for u in self.units:
-            self.units[u].save(path + u + ".pkl")
-        jt.save(self.params, path + self.name + ".pkl")
-    
-    def load(self, path):
-        for u in self.units:
-            self.units[u].load(path + u + ".pkl")
-        params = jt.load(path + self.name + ".pkl")
-        for param in params:
-            self.params[param].load_state_dict(params[param].state_dict())

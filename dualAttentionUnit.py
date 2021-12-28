@@ -17,11 +17,6 @@ class dualAttentionWrapper(jt.Module):
         self.bf = jt.zeros([hidden_size])
         self.Wr = jt.rand([input_size, hidden_size])
         self.br = jt.zeros([hidden_size])
-
-        self.params = {'Wh': self.Wh, 'Ws': self.Ws, 'Wo': self.Wo,
-            'bh': self.bh, 'bs': self.bs, 'bo': self.bo,
-            'Wf': self.Wf, 'Wr': self.Wr, 
-            'bf': self.bf, 'br': self.br}
     
     def execute(self, x, hs, fds, finished = None):
         self.hs = jt.transpose(hs, [1,0,2]) # input_len * batch * input_size
@@ -53,11 +48,3 @@ class dualAttentionWrapper(jt.Module):
             inds = jt.where(finished)[0]
             out[inds] = 0
         return out, weights
-    
-    def save(self, path):
-        jt.save(self.params, path)
-    
-    def load(self, path):
-        params = jt.load(path)
-        for param in params:
-            self.params[param].assign(params[param])

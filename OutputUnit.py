@@ -9,8 +9,6 @@ class OutputUnit(jt.Module):
         self.W = jt.rand([input_size, output_size])
         self.b = jt.zeros([output_size])
 
-        self.params = {'W': self.W, 'b': self.b}
-
     def execute(self, x, finished = None):
         out = jt.nn.matmul(x, self.W) + self.b
 
@@ -20,11 +18,3 @@ class OutputUnit(jt.Module):
             out[inds] = 0
             #out = tf.multiply(1 - finished, out)
         return out
-        
-    def save(self, path):
-        jt.save(self.params, path)
-    
-    def load(self, path):
-        params = jt.load(path)
-        for param in params:
-            self.params[param].assign(params[param])

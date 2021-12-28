@@ -12,9 +12,6 @@ class AttentionWrapper(jt.Module):
         self.bs = jt.zeros([hidden_size])
         self.Wo = jt.rand([2 * input_size, hidden_size])
         self.bo = jt.zeros([hidden_size])
-        self.params = {'Wh': self.Wh, 'Ws': self.Ws, 'Wo': self.Wo,
-            'bh': self.bh, 'bs': self.bs, 'bo': self.bo}
-        
     
     def execute(self, x, hs, fds, finished = None):
         self.hs = jt.transpose(hs, [1, 0, 2])
@@ -32,11 +29,3 @@ class AttentionWrapper(jt.Module):
             finished = finished.unsqueeze(1)
             out = jt.array(np.where(finished, np.zeros_like(out), np.array(out)))
         return out, weights
-    
-    def save(self, path):
-        jt.save(self.params, path)
-    
-    def load(self, path):
-        params = jt.load(path)
-        for param in params:
-            self.params[param].assign(params[param])
