@@ -2,9 +2,17 @@
 
 - 运行环境：Linux
 
-- 处理过的数据集下载：https://wss1.cn/f/731ufp5g3c0。下载解压文件夹processed_data到本目录下。
+- 原数据集下载：https://cloud.tsinghua.edu.cn/f/c3e086f593ad42c2bce8/
+  
+  下载后解压文件夹`original_data`到本目录
 
-original_data 也需要放在目录下。
+- 处理过的数据集下载：https://cloud.tsinghua.edu.cn/f/1e8bd5fab0c24b5b87dc/
+  
+  下载后解压所有文件到`processed_data`文件夹下
+  
+- 训练好的模型下载：https://cloud.tsinghua.edu.cn/f/35ae21d27a2c493ab2c9/
+  
+  下载后解压`model.pkl`到`results/res/demo`文件夹下
 
 # Requirements.txt
 
@@ -73,7 +81,7 @@ pyrouge_set_rouge_path ~/ROUGE-1.5.5
 
 # 图形界面
 
-- 将训练后保存的模型文件`model.pkl`放在文件夹`./results/res/demo`下
+- 将训练后保存的模型文件`model.pkl`放在文件夹`results/res/demo`下
 - 运行`python gui.py`
 - 在图形界面中的`column_header`和`content`处逐行输入表头和内容，点击`add`按钮逐行添加
 - 添加完成后，点击`submit`提交输入，在`result`处可以查看生成结果
