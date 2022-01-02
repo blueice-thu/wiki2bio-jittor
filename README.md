@@ -75,8 +75,25 @@ pyrouge_set_rouge_path ~/ROUGE-1.5.5
 修改 `PythonROUGE.py` 中的代码为 ROUGE 的路径：
 
 ```python
-    ROUGE_path = '~/ROUGE-1.5.5/ROUGE-1.5.5.pl'
-    data_path = '~/ROUGE-1.5.5/data'
+ROUGE_path = '~/ROUGE-1.5.5/ROUGE-1.5.5.pl'
+data_path = '~/ROUGE-1.5.5/data'
+```
+
+# 训练和测试
+
+训练：
+
+```bash
+python main.py
+```
+
+训练时会在路径 `/results/res/{timestamp}/loads/` 路径下报错模型，将选定的模型移动到 `/results/res/{timestamp}/` 路径下，进行测试：
+
+```bash
+# For BLEU
+python main.py --mode test --load 1640709464365
+# For ROUGE
+python PythonROUGE.py
 ```
 
 # 图形界面
