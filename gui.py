@@ -1,41 +1,11 @@
 # This Python file uses the following encoding: utf-8
-import argparse
 import os
 import sys
 
 from PyQt5 import QtWidgets, QtCore
 from form import Ui_Widget
 from preProcess import Vocab
-from SeqUnit import SeqUnit
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--hidden_size',    default=500,    type=int, help='Size of each layer.')
-parser.add_argument('--emb_size',       default=400,    type=int, help='Size of embedding.')
-parser.add_argument('--field_size',     default=50,     type=int, help='Size of embedding.')
-parser.add_argument('--pos_size',       default=5,      type=int, help='Size of embedding.')
-parser.add_argument('--batch_size',     default=32,     type=int, help='Batch size of train set.')
-parser.add_argument('--epoch',          default=50,     type=int, help='Number of training epoch.')
-parser.add_argument('--source_vocab',   default=20003,  type=int, help='vocabulary size')
-parser.add_argument('--field_vocab',    default=1480,   type=int, help='vocabulary size')
-parser.add_argument('--position_vocab', default=31,     type=int, help='vocabulary size')
-parser.add_argument('--target_vocab',   default=20003,  type=int, help='vocabulary size')
-parser.add_argument('--report',         default=5000,   type=int, help='report valid results after some steps')
-parser.add_argument('--learning_rate',  default=0.0003, type=float, help='learning rate')
-
-parser.add_argument('--mode',   default='train',            type=str, help='train or test')
-parser.add_argument('--load',   default='0',                type=str, help='load directory')  # BBBBBESTOFAll
-parser.add_argument('--dir',    default='processed_data',   type=str, help='data set directory')
-parser.add_argument('--limits', default=0,                  type=int, help='max data set size')
-
-parser.add_argument('--dual_attention', default=True, type=bool, help='dual attention layer or normal attention')
-parser.add_argument('--fgate_encoder',  default=True, type=bool, help='add field gate in encoder lstm')
-
-parser.add_argument('--field',          default=False,  type=bool, help='concat field information to word embedding')
-parser.add_argument('--position',       default=False,  type=bool, help='concat position information to word embedding')
-parser.add_argument('--encoder_pos',    default=True,   type=bool, help='position information in field-gated encoder')
-parser.add_argument('--decoder_pos',    default=True,   type=bool, help='position information in dual attention decoder')
-
-args = parser.parse_args()
+import jittor as jt
 
 class MyWindow(QtWidgets.QMainWindow):
 
@@ -107,15 +77,8 @@ class MyWindow(QtWidgets.QMainWindow):
 
 
 if __name__ == "__main__":
-    model = SeqUnit(batch_size=args.batch_size, hidden_size=args.hidden_size, emb_size=args.emb_size,
-                    field_size=args.field_size, pos_size=args.pos_size, field_vocab=args.field_vocab,
-                    source_vocab=args.source_vocab, position_vocab=args.position_vocab,
-                    target_vocab=args.target_vocab, name="seq2seq",
-                    field_concat=args.field, position_concat=args.position,
-                    fgate_enc=args.fgate_encoder, dual_att=args.dual_attention, decoder_add_pos=args.decoder_pos,
-                    encoder_add_pos=args.encoder_pos, learning_rate=args.learning_rate)
-    save_dir = 'results/res/demo/'
-    model.load(save_dir)
+    save_dir = 'results/res/demo/model.pkl'
+    model = jt.load(save_dir)
 
     app = QtWidgets.QApplication([])
     MainWindow = MyWindow(model)
