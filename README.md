@@ -11,6 +11,7 @@ original_data 也需要放在目录下。
 ```
 jittor
 nltk
+PyQt5
 ```
 
 安装依赖：
@@ -69,3 +70,10 @@ pyrouge_set_rouge_path ~/ROUGE-1.5.5
     ROUGE_path = '~/ROUGE-1.5.5/ROUGE-1.5.5.pl'
     data_path = '~/ROUGE-1.5.5/data'
 ```
+
+# 图形界面
+
+- 将训练后保存的模型文件`model.pkl`放在文件夹`./results/res/demo`下
+- 运行`python gui.py`
+- 在图形界面中的`column_header`和`content`处逐行输入表头和内容，点击`add`按钮逐行添加
+- 添加完成后，点击`submit`提交输入，在`result`处可以查看生成结果
