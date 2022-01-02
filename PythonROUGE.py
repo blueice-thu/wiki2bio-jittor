@@ -123,8 +123,11 @@ def create_xml(xml_file,guess_summ_file,ref_summ_list):
 # This is only called if this file is executed as a script.
 # It shows an example of usage.
 if __name__ == '__main__':
-    guess_summary_list = ['Example/Guess_Summ_1.txt','Example/Guess_Summ_2.txt']
-    ref_summ_list = [['Example/Ref_Summ_1_1.txt','Example/Ref_Summ_1_2.txt'] , ['Example/Ref_Summ_2_1.txt','Example/Ref_Summ_2_2.txt','Example/Ref_Summ_2_3.txt']]
+    guess_summary_list = []
+    ref_summ_list = []
+    for i in range(72831):
+        guess_summary_list.append('results/evaluation/1640709464365/pred_summary_{}'.format(i))
+        ref_summ_list.append(['processed_data/test/test_split_for_rouge/gold_summary_{}'.format(i)])
     recall_list,precision_list,F_measure_list = PythonROUGE(guess_summary_list,ref_summ_list)
     print('recall = ' + str(recall_list))
     print('precision = ' + str(precision_list))

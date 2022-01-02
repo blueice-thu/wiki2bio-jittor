@@ -209,7 +209,7 @@ def main():
     texts_valid = [list(t.strip().split()) for t in texts_valid]
 
     if args.load != '0':
-        model = jt.load(save_dir)
+        model = jt.load(save_dir + 'model.pkl')
     else:
         model = SeqUnit(batch_size=args.batch_size, hidden_size=args.hidden_size, emb_size=args.emb_size,
                         field_size=args.field_size, pos_size=args.pos_size, field_vocab=args.field_vocab,
